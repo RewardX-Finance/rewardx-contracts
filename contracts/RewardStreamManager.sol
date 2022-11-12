@@ -13,7 +13,7 @@ import {
     CFAv1Library
 } from "@superfluid-finance/ethereum-contracts/contracts/apps/CFAv1Library.sol";
 
-contract FarmStreamExtension {
+contract RewardStreamManager {
 
     using CFAv1Library for CFAv1Library.InitData;
     

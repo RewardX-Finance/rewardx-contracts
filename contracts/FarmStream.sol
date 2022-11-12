@@ -4,7 +4,7 @@ pragma abicoder v2;
 
 import "./IAMM.sol";
 import "./IFarmStream.sol";
-import "./IFarmStreamExtension.sol";
+import "./IRewardStreamManager.sol";
 import "./IFarmStreamFactory.sol";
 import "./IERC20.sol";
 
@@ -119,7 +119,7 @@ contract FarmStream is IFarmStream {
 
         (reward, lockedRewardStreamPerBlock) = calculateLockedFarmingReward(mainTokenAmount);
         require(lockedRewardStreamPerBlock > 0, "Insufficient staked amount");
-        IFarmStreamExtension(rewardStreamManager).createRewardStream(positionId,uniqueOwner, lockedRewardStreamPerBlock);
+        IRewardStreamManager(rewardStreamManager).createRewardStream(positionId,uniqueOwner, lockedRewardStreamPerBlock);
 
         Farm.totalSupply = Farm.totalSupply + mainTokenAmount;
 
@@ -305,7 +305,7 @@ contract FarmStream is IFarmStream {
             msg.sender
         );
         // retrieve the position
-        IFarmStreamExtension(rewardStreamManager).deleteRewardStream(positionId,msg.sender);
+        IRewardStreamManager(rewardStreamManager).deleteRewardStream(positionId,msg.sender);
         // pay the fees!
         if (isUnlock && penaltyFee > 0) {
             uint256 fee = (lpData.amount * ((penaltyFee * 1e18) / ONE_HUNDRED)) / 1e18;

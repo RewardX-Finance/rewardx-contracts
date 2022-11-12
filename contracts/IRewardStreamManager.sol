@@ -4,7 +4,7 @@ pragma abicoder v2;
 
 import "./FarmData.sol";
 
-interface IFarmStreamExtension {
+interface IRewardStreamManager {
 
     function init(bool byMint, address host, address treasury) external;
 

@@ -67,6 +67,7 @@ contract FarmStream is IFarmStream {
     /** Extension methods */
 
    
+    //todoo: pass LP from the Factory in order to emit the event
     function init(address _rewardTokenAddress, FarmingSettingsRequest memory farmingSetup, address _feeReceiver, uint256 _penaltyFee, address _owner, address _rewardStreamManager) external {
         require(factory == address(0), "Already initialized");
         factory = msg.sender;
@@ -97,8 +98,6 @@ contract FarmStream is IFarmStream {
     function setup() public override view returns (FarmingSettings memory) {
         return (Farm);
     }
-
-    
 
     function openPosition(userPositionRequest memory request) public override payable returns(uint256 positionId) {
         if(!Farm.active) {
@@ -148,6 +147,7 @@ contract FarmStream is IFarmStream {
     }
 
     function calculateLockedFarmingReward(uint256 mainTokenAmount) public view returns(uint256 reward, uint256 relativeRewardStream) {
+        FarmingSettings memory setup = Farm;
         // check if main token amount is less than the stakeable liquidity
         require(mainTokenAmount <= Farm.maxStakeable - Farm.totalSupply, "Invalid liquidity");
         uint256 remainingBlocks = block.timestamp >= Farm.endTime ? 0 : Farm.endTime - block.timestamp;
@@ -305,6 +305,11 @@ contract FarmStream is IFarmStream {
             msg.sender
         );
         // retrieve the position
+        userPosition storage farmingPosition = _positions[positionId];
+
+        require(farmingPosition.liquidityPoolTokenAmount != 0);
+
+        // retrieve the position
         IRewardStreamManager(rewardStreamManager).deleteRewardStream(positionId,msg.sender);
         // pay the fees!
         if (isUnlock && penaltyFee > 0) {
@@ -321,6 +326,8 @@ contract FarmStream is IFarmStream {
             // send back the liquidity pool token amount without the fee
             _safeTransfer(lpData.liquidityPoolAddress, lpData.receiver, lpData.amount);
         }
+        farmingPosition.liquidityPoolTokenAmount = 0;
+
         if (Farm.active && !isUnlock) {
             _deactivateSetup();
         }

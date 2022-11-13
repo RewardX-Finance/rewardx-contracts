@@ -20,17 +20,17 @@ contract RewardStreamManager {
     //initialize cfaV1 variable
     CFAv1Library.InitData public cfaV1;
 
-    ISuperToken public immutable rewardToken;
+    ISuperToken public rewardToken;
     address public farmingContract;
 
     event RewardStreamCreated(uint256 creationTime, address indexed rewardReceiver, uint256 flowRate);
     event RewardStreamClosed(uint256 closeTime, address indexed rewardReceiver);
     
-    constructor(
+    function init(
         ISuperfluid host,
         ISuperToken _rewardToken, 
         address _farmingContract
-    ) {
+    ) external {
     
         //initialize InitData struct, and set equal to cfaV1
         cfaV1= CFAv1Library.InitData(
@@ -52,18 +52,17 @@ contract RewardStreamManager {
         _;
     }
     
-    function createRewardStream(uint256 positionId, address rewardStreamReceiver, uint256 flowRate) external byFarmingContract {
+    function createRewardStream(address rewardStreamReceiver, uint256 flowRate) external byFarmingContract {
         int96 adjustedFlowRate = adjustFlowRate(flowRate);
         cfaV1.createFlow(rewardStreamReceiver, rewardToken, adjustedFlowRate);
     }
 
-    function adjustFlowRate(uint256 flowRate) internal view returns (int96) {
+    function adjustFlowRate(uint256 flowRate) internal pure returns (int96) {
         int96 test = int96(uint96(flowRate));
         return test;
     }
 
-    function deleteRewardStream(uint256 positionId, address rewardStreamReceiver) external byFarmingContract {
+    function deleteRewardStream(address rewardStreamReceiver) external byFarmingContract {
         cfaV1.deleteFlow(address(this), rewardStreamReceiver, rewardToken);    
     }
-
 }

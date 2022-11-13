@@ -10,6 +10,6 @@ interface IFarmStream {
     function rewardTokenAddress() external view returns(address);
     function position(uint256 positionId) external view returns (userPosition memory);
     function setup() external view returns (FarmingSettings memory);
-    function setFarmingSetups(FarmingSettingsRequest memory farmingSetup) external;
+    function setFarmingSetups(FarmingSettingsRequest memory farmingSetup, address liquidityPool) external;
     function openPosition(userPositionRequest calldata request) external payable returns(uint256 positionId);
 }

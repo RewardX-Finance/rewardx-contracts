@@ -9,14 +9,13 @@ import "./IFarmStreamFactory.sol";
 import "./IERC20.sol";
 
 contract FarmStream is IFarmStream {
-
-    // percentage
+    // percentage for math precision purpose
     uint256 public override constant ONE_HUNDRED = 1e18;
-    //
+    // protocol fee wallet receiver 
     address public feeReceiver;
-    //
+    // protocol fee %
     uint256 public penaltyFee;
-    //
+    // Farming contract owner
     address public owner;
     // event that tracks contracts deployed for the given reward token
     event RewardToken(address indexed rewardTokenAddress);
@@ -28,19 +27,18 @@ contract FarmStream is IFarmStream {
     event FarmToken(uint256 indexed objectId, address indexed liquidityPoolToken, uint256 setupIndex, uint256 endTime);
     // factory address that will create clones of this contract
     address public factory;
-    //
+    // Farming setup once created
     FarmingSettings public Farm;
-    //
-
+    // external contract managing the reward token streaming using Superfluid prtocol
     address public rewardStreamManager;
     // address of the reward token
     address public override rewardTokenAddress;
+    // address receiver in case of an emergency flush
+    address public emergencyFlushReceiver;
     // mapping containing all the positions
     mapping(uint256 => userPosition) private _positions;
-
+    // mapping the positions number 
     uint256 private _setupPositionsCount;
-
-    
 
     /** Modifiers. */
 
@@ -55,20 +53,11 @@ contract FarmStream is IFarmStream {
         _;
     }
 
-    /** @dev activeSetupOnly modifier used to check for function calls only if the setup is active. */
-    modifier activeSetupOnly(uint256 setupIndex) {
-        require(Farm.active, "Setup not active");
-        require(Farm.startTime <= block.timestamp && Farm.endTime > block.timestamp, "Invalid setup");
-        _;
-    }
-
     receive() external payable {}
 
-    /** Extension methods */
+    /** Initialize Farming contract */
 
-   
-    //todoo: pass LP from the Factory in order to emit the event
-    function init(address _rewardTokenAddress, FarmingSettingsRequest memory farmingSetup, address _feeReceiver, uint256 _penaltyFee, address _owner, address _rewardStreamManager) external {
+    function init(address _rewardTokenAddress, FarmingSettingsRequest memory farmingSetup, address _feeReceiver, uint256 _penaltyFee, address _owner, address _rewardStreamManager, address liquidityPool) external {
         require(factory == address(0), "Already initialized");
         factory = msg.sender;
         emit RewardToken(rewardTokenAddress = _rewardTokenAddress);
@@ -78,11 +67,12 @@ contract FarmStream is IFarmStream {
         owner = _owner;
         rewardStreamManager = _rewardStreamManager;
 
-        _setFarmingSetup(farmingSetup);
+        _setFarmingSetup(farmingSetup,liquidityPool);
     }
 
-    function setFarmingSetups(FarmingSettingsRequest memory farmingSetup) public override onlyOwner {
-        _setFarmingSetup(farmingSetup);
+    function setFarmingSetups(FarmingSettingsRequest memory farmingSetup, address liquidityPoolAddress) public override onlyOwner {
+        require (Farm.ammPlugin == address(0));
+        _setFarmingSetup(farmingSetup, liquidityPoolAddress);
     }
 
     /** Public methods */
@@ -149,55 +139,51 @@ contract FarmStream is IFarmStream {
     function calculateLockedFarmingReward(uint256 mainTokenAmount) public view returns(uint256 reward, uint256 relativeRewardStream) {
         FarmingSettings memory setup = Farm;
         // check if main token amount is less than the stakeable liquidity
-        require(mainTokenAmount <= Farm.maxStakeable - Farm.totalSupply, "Invalid liquidity");
-        uint256 remainingBlocks = block.timestamp >= Farm.endTime ? 0 : Farm.endTime - block.timestamp;
+        require(mainTokenAmount <= setup.maxStakeable - setup.totalSupply, "Invalid liquidity");
+        uint256 remainingBlocks = block.timestamp >= setup.endTime ? 0 : setup.endTime - block.timestamp;
         // get amount of remaining blocks
         require(remainingBlocks > 0, "ended");
         // get total reward still available (= 0 if rewardStreamFlow = 0)
-        require(Farm.rewardStreamFlow * remainingBlocks > 0, "No rewards");
+        require(setup.rewardStreamFlow * remainingBlocks > 0, "No rewards");
         // calculate relativerewardStreamFlow
-        // relativeStreamrewardStreamFlow = (setup.streamReward * ((mainTokenAmount * 1e18) / _setupsInfo[_setups[setupIndex].infoIndex].maxStakeable)) / 1e18;
-        relativeRewardStream = (Farm.rewardStreamFlow * ((mainTokenAmount * 1e18) / Farm.maxStakeable)) / 1e18;
+        relativeRewardStream = (setup.rewardStreamFlow * ((mainTokenAmount * 1e18) / setup.maxStakeable)) / 1e18;
         // check if rewardStreamFlow is greater than 0
         require(relativeRewardStream > 0, "Invalid rpb");
         // calculate reward by multiplying relative reward per block and the remaining blocks
         reward = relativeRewardStream * remainingBlocks;
     }
 
-    /*
-    function finalFlush(address[] calldata tokens, uint256[] calldata amounts) public  {
-        for(uint256 i = 0; i < _farmingSetupsCount; i++) {
-            require(_setupPositionsCount[i] == 0 && !_setups[i].active && _setups[i].totalSupply == 0, "Not Empty");
-        }
-        (,,, address receiver,) = IFarmStreamExtension(_extension).data();
+    function emergencyFlush(address[] calldata tokens, uint256[] calldata amounts) public onlyOwner {
+        require(_setupPositionsCount == 0 && !Farm.active && Farm.totalSupply == 0, "Not Empty");
         require(tokens.length == amounts.length, "length");
         for(uint256 i = 0; i < tokens.length; i++) {
             address token = tokens[i];
             uint256 amount = amounts[i];
-            require(receiver != address(0));
+            require(emergencyFlushReceiver != address(0));
             if(token == address(0)) {
-                (bool result,) = receiver.call{value : amount}("");
+                (bool result,) = emergencyFlushReceiver.call{value : amount}("");
                 require(result, "ETH");
             } else {
-                _safeTransfer(token, receiver, amount);
+                _safeTransfer(token, emergencyFlushReceiver, amount);
             }
         }
     }
 
     /** Private methods */
 
-    function _setFarmingSetup(FarmingSettingsRequest memory request) private {
+    function _setFarmingSetup(FarmingSettingsRequest memory request, address liquidityPoolAddress) private {
         FarmingSettingsRequest memory settingsRequest = request;
         
         require(
             settingsRequest.ammPlugin != address(0) &&
-            settingsRequest.liquidityPoolTokenAddress != address(0) &&
+            liquidityPoolAddress != address(0) &&
+            settingsRequest.liquidityPoolTokenAddress == address(0) &&
             settingsRequest.rewardStreamFlow > 0 &&
             settingsRequest.maxStakeable > 0,
             "Invalid configuration"
         );
 
-        (,,address[] memory tokenAddresses) = IAMM(settingsRequest.ammPlugin).byLiquidityPool(settingsRequest.liquidityPoolTokenAddress);
+        (,,address[] memory tokenAddresses) = IAMM(settingsRequest.ammPlugin).byLiquidityPool(liquidityPoolAddress);
         settingsRequest.ethereumAddress = address(0);
         if (settingsRequest.involvingETH) {
             (settingsRequest.ethereumAddress,,) = IAMM(settingsRequest.ammPlugin).data();
@@ -220,32 +206,33 @@ contract FarmStream is IFarmStream {
         require(mainTokenFound, "No main token");
         require(!settingsRequest.involvingETH || ethTokenFound, "No ETH token");
 
-        Farm = FarmingSettings(false, settingsRequest.startTime, 0, 0,0, settingsRequest.rewardStreamFlow, 0, 0 ,0, settingsRequest.ammPlugin, settingsRequest.liquidityPoolTokenAddress, settingsRequest.mainTokenAddress, settingsRequest.ethereumAddress, settingsRequest.involvingETH);
+        Farm = FarmingSettings(false, settingsRequest.startTime, 0, 0,0, settingsRequest.rewardStreamFlow, 0, 0 ,0, settingsRequest.ammPlugin, liquidityPoolAddress, settingsRequest.mainTokenAddress, settingsRequest.ethereumAddress, settingsRequest.involvingETH);
     
     }
 
     function _transferToMeAndCheckAllowance(userPositionRequest memory request) private returns(IAMM amm, uint256 liquidityPoolAmount, uint256 mainTokenAmount) {
+        FarmingSettings memory setup = Farm;
         require(request.amount > 0, "No amount");
         // retrieve the values
-        amm = IAMM(Farm.ammPlugin);
+        amm = IAMM(setup.ammPlugin);
         liquidityPoolAmount = request.amountIsLiquidityPool ? request.amount : 0;
         mainTokenAmount = request.amountIsLiquidityPool ? 0 : request.amount;
         address[] memory tokens;
         uint256[] memory tokenAmounts;
         // if liquidity pool token amount is provided, the position is opened by liquidity pool token amount
         if(request.amountIsLiquidityPool) {
-            _safeTransferFrom(Farm.liquidityPoolTokenAddress, msg.sender, address(this), liquidityPoolAmount);
-            (tokenAmounts, tokens) = amm.byLiquidityPoolAmount(Farm.liquidityPoolTokenAddress, liquidityPoolAmount);
+            _safeTransferFrom(setup.liquidityPoolTokenAddress, msg.sender, address(this), liquidityPoolAmount);
+            (tokenAmounts, tokens) = amm.byLiquidityPoolAmount(setup.liquidityPoolTokenAddress, liquidityPoolAmount);
         } else {
             // else it is opened by the tokens amounts
-            (liquidityPoolAmount, tokenAmounts, tokens) = amm.byTokenAmount(Farm.liquidityPoolTokenAddress, Farm.mainTokenAddress, mainTokenAmount);
+            (liquidityPoolAmount, tokenAmounts, tokens) = amm.byTokenAmount(setup.liquidityPoolTokenAddress, setup.mainTokenAddress, mainTokenAmount);
         }
 
         // iterate the tokens and perform the transferFrom and the approve
         for(uint256 i = 0; i < tokens.length; i++) {
-            if(tokens[i] == Farm.mainTokenAddress) {
+            if(tokens[i] == setup.mainTokenAddress) {
                 mainTokenAmount = tokenAmounts[i];
-                require(mainTokenAmount >= Farm.minStakeable, "Invalid liquidity");
+                require(mainTokenAmount >= setup.minStakeable, "Invalid liquidity");
                 if(request.amountIsLiquidityPool) {
                     break;
                 }
@@ -253,11 +240,11 @@ contract FarmStream is IFarmStream {
             if(request.amountIsLiquidityPool) {
                 continue;
             }
-            if(Farm.involvingETH && Farm.ethereumAddress == tokens[i]) {
+            if(setup.involvingETH && setup.ethereumAddress == tokens[i]) {
                 require(msg.value == tokenAmounts[i], "Incorrect eth value");
             } else {
                 _safeTransferFrom(tokens[i], msg.sender, address(this), tokenAmounts[i]);
-                _safeApprove(tokens[i], Farm.ammPlugin, tokenAmounts[i]);
+                _safeApprove(tokens[i], setup.ammPlugin, tokenAmounts[i]);
             }
         }
     }
@@ -341,9 +328,7 @@ contract FarmStream is IFarmStream {
 
     function _activateSetup() private {
         require(block.timestamp > Farm.delayStartTime, "Too early");
-        
-        //Farm.active = _ensureCheck(Farm.rewardStreamFlow * Farm.blockDuration);
-        // setup.active should check the extension balance in order to start the stream
+        Farm.active = _ensureCheck(Farm.rewardStreamFlow * Farm.blockDuration);
         // update new setup
         Farm.startTime = block.timestamp;
         Farm.endTime = block.timestamp + Farm.blockDuration;
@@ -399,33 +384,15 @@ contract FarmStream is IFarmStream {
         }
     }
 
-    /** @dev gives back the reward to the extension.
-      * @param amount to give back.
-     */
-    function _giveBack(uint256 amount) private {
-        if(amount == 0) {
-            return;
-        }
-        if (rewardTokenAddress == address(0)) {
-            //IFarmStreamExtension(_extension).backToYou{value : amount}(amount);
-        } else {
-            //_safeApprove(rewardTokenAddress, _extension, amount);
-            //IFarmStreamExtension(_extension).backToYou(amount);
-        }
-    }
-
     /** @dev ensures the transfer from the contract to the extension.
       * @param amount amount to transfer.
      */
-    function _ensureTransfer(uint256 amount) private returns(bool) {
-        uint256 initialBalance = rewardTokenAddress == address(0) ? address(this).balance : IERC20(rewardTokenAddress).balanceOf(address(this));
-        uint256 expectedBalance = initialBalance + amount;
-        //try IFarmStreamExtension(_extension).transferTo(amount) {} catch {}
-        uint256 actualBalance = rewardTokenAddress == address(0) ? address(this).balance : IERC20(rewardTokenAddress).balanceOf(address(this));
-        if(actualBalance == expectedBalance) {
+    
+    function _ensureCheck(uint256 amount) private view returns(bool) {
+        uint256 balanceForStream = IERC20(rewardTokenAddress).balanceOf(rewardStreamManager);
+        if(balanceForStream >= amount) {
             return true;
         }
-        _giveBack(actualBalance - initialBalance);
         return false;
     }
 }

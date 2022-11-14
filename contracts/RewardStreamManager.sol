@@ -20,17 +20,17 @@ contract RewardStreamManager {
     //initialize cfaV1 variable
     CFAv1Library.InitData public cfaV1;
 
-    ISuperToken public rewardToken;
+    ISuperToken immutable public rewardToken;
     address public farmingContract;
 
     event RewardStreamCreated(uint256 creationTime, address indexed rewardReceiver, uint256 flowRate);
     event RewardStreamClosed(uint256 closeTime, address indexed rewardReceiver);
     
-    function init(
+    constructor(
         ISuperfluid host,
         ISuperToken _rewardToken, 
         address _farmingContract
-    ) external {
+    ) {
     
         //initialize InitData struct, and set equal to cfaV1
         cfaV1= CFAv1Library.InitData(

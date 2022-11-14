@@ -39,19 +39,30 @@ before(async function () {
 
   // deploy the framework locally
   contractsFramework = await sfDeployer.getFramework()
+  // Use the mainnet
+const network = "homestead";
 
-  const alchemyProvider = new ethers.providers.AlchemyProvider("matic", "https://polygon-mainnet.g.alchemy.com/v2/NRowM2rZoB0OnxGhptDTW01aP318v7_2");
+// Specify your own API keys
+// Each is optional, and if you omit it the default
+// API key for that service will be used.
+const provider = ethers.getDefaultProvider("matic", {
+    infura: "https://polygon-mainnet.infura.io/v3/384e453bd0e14fb4af9256c495db7470",
+});
+
+  //const alchemyProvider = new ethers.providers.JsonRpcProvider("matic", "https://polygon-mainnet.infura.io/v3/dc6d7f844ddc4a5194af1c325aeceec8");
 
   console.log("1");
 
   sf = await Framework.create({
     chainId: 137,
-    provider: alchemyProvider,
+    provider: provider,
     //resolverAddress: contractsFramework.resolver, // (empty)
     //protocolReleaseVersion: "v1"
   })
+  
   console.log("2");
 
+  /*
 
   // DEPLOYING DAI and DAI wrapper super token
   tokenDeployment = await sfDeployer.deployWrapperSuperToken(
@@ -61,12 +72,20 @@ before(async function () {
       ethers.utils.parseEther("100000000").toString()
   )
 
+  console.log("3");
+
+
+
   daix = await sf.loadSuperToken("fDAIx")
+  console.log("4");
+
   dai = new ethers.Contract(
       daix.underlyingToken.address,
       TestToken.abi,
       owner
   )
+  console.log("5");
+
   usdcx = await sf.loadSuperToken("fDAIx")
 
   // minting test DAI
@@ -90,6 +109,7 @@ before(async function () {
   await ownerUpgrade.exec(owner)
   await account1Upgrade.exec(account1)
   await account2Upgrade.exec(account2)
+  */
 
 })
 
@@ -123,17 +143,19 @@ describe("Farming", function () {
     const Farming = await FarmingSetup.deploy();
     console.log(Farming.address);
 
+    usdcx = "0xCAa7349CEA390F89641fe306D93591f87595dc1F";
+
     
     // reward stream manager 
     const rewardStream = await ethers.getContractFactory("RewardStreamManager");
     const streamManager = await rewardStream.deploy(
       "0x3E14dC1b13c488a8d5D310918780c983bD5982E7",
-      daix.address,
+      usdcx,
       Farming.address
     ,
     {gasLimit: 5000000});
 
-    console.log(daix.address);
+    console.log(usdcx);
 
     console.log(streamManager.address);
 
@@ -163,7 +185,7 @@ describe("Farming", function () {
     };
 
 
-    console.log(daix.address,
+    console.log(usdcx,
       setup,
       feeReceiver,
       fee,
@@ -172,7 +194,7 @@ describe("Farming", function () {
       lp);
 
     let txFarmContract = await Farming.init(
-      usdcx.address,
+      usdcx,
       setup,
       feeReceiver,
       fee,

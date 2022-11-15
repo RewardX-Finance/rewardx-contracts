@@ -225,6 +225,8 @@ describe("Farming", function () {
       lp
   );
 
+  console.log(txFarmContract);
+
   let receive = await txFarmContract.wait();
   let txSetup = await Farming.setup();
 
@@ -284,6 +286,13 @@ describe("Farming", function () {
     };
 
     let openPosition = await Farming.connect(secondAddressSigner).openPosition(positionRequest);
+
+
+    //let closePosition = await Farming.connect(secondAddressSigner).unlock(positionId, false);
+
+
+
+
     
   });
 });

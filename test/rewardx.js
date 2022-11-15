@@ -2,7 +2,7 @@ const helpers = require("@nomicfoundation/hardhat-network-helpers")
 const { anyValue } = require("@nomicfoundation/hardhat-chai-matchers/withArgs")
 const { expect } = require("chai")
 const { ethers } = require("hardhat")
-const { Framework } = require("@superfluid-finance/sdk-core")
+const { Framework, SuperToken } = require("@superfluid-finance/sdk-core")
 const frameworkDeployer = require("@superfluid-finance/ethereum-contracts/scripts/deploy-test-framework")
 const TestToken = require("@superfluid-finance/ethereum-contracts/build/contracts/TestToken.json");
 const { BigNumber } = require('ethers');
@@ -52,17 +52,21 @@ const provider = ethers.getDefaultProvider("matic", {
 
   console.log("1");
 
-  /*
- 
+  
+ /*
   sf = await Framework.create({
     chainId: 137,
     provider: provider,
     //resolverAddress: contractsFramework.resolver, // (empty)
     //protocolReleaseVersion: "v1"
   })
-  
+  const usdcx = await sf.loadSuperToken("0xCAa7349CEA390F89641fe306D93591f87595dc1F");
+
+  console.log(usdcx.address);
   console.log("2");
-/*
+  const name = await usdcx.name();
+  console.log(name);
+  /*
   // DEPLOYING DAI and DAI wrapper super token
   tokenDeployment = await sfDeployer.deployWrapperSuperToken(
       "Fake DAI Token",
@@ -73,6 +77,19 @@ const provider = ethers.getDefaultProvider("matic", {
 
   console.log("3");
 */
+/*
+const config = {
+  hostAddress: "0x3E14dC1b13c488a8d5D310918780c983bD5982E7",
+  cfaV1Address: "0x6EeE6060f715257b970700bc2656De21dEdF074C",
+  idaV1Address: "0xB0aABBA4B2783A72C52956CDEF62d438ecA2d7a1"
+};
+
+const usdcx = await SuperToken.create({
+  address: "0xCAa7349CEA390F89641fe306D93591f87595dc1F",
+  config,
+  networkName: "matic", // you can also pass in chainId instead (e.g. chainId: 137)
+  provider
+});
 
 
   //daix = await sf.loadSuperToken("fDAIx")

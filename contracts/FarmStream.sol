@@ -7,6 +7,12 @@ import "./IFarmStream.sol";
 import "./IRewardStreamManager.sol";
 import "./IFarmStreamFactory.sol";
 import "./IERC20.sol";
+import {
+    ISuperfluid, ISuperToken, ISuperApp, ISuperAgreement, SuperAppDefinitions
+} from "@superfluid-finance/ethereum-contracts/contracts/interfaces/superfluid/ISuperfluid.sol";
+
+import "hardhat/console.sol";
+
 
 contract FarmStream is IFarmStream {
     // percentage for math precision purpose
@@ -90,11 +96,18 @@ contract FarmStream is IFarmStream {
     }
 
     function openPosition(userPositionRequest memory request) public override payable returns(uint256 positionId) {
+        console.log("Super token balance");
+
         if(!Farm.active) {
             _activateSetup();
         }
+
+
         require(Farm.active, "Setup not active");
-        require(Farm.startTime <= block.timestamp && Farm.endTime > block.timestamp, "Invalid setup");
+        //require(Farm.startTime <= block.timestamp && Farm.endTime > block.timestamp, "Invalid setup");
+        require(Farm.startTime <= block.timestamp , "Invalid setup1");
+        require(Farm.endTime > block.timestamp, "Invalid setup2");
+
         // retrieve the unique owner
         address uniqueOwner = (request.positionOwner != address(0)) ? request.positionOwner : msg.sender;
         // create the position id
@@ -206,7 +219,7 @@ contract FarmStream is IFarmStream {
         require(mainTokenFound, "No main token");
         require(!settingsRequest.involvingETH || ethTokenFound, "No ETH token");
 
-        Farm = FarmingSettings(false, settingsRequest.startTime, 0, 0,0, settingsRequest.rewardStreamFlow, 0, 0 ,0, settingsRequest.ammPlugin, liquidityPoolAddress, settingsRequest.mainTokenAddress, settingsRequest.ethereumAddress, settingsRequest.involvingETH);
+        Farm = FarmingSettings(false, settingsRequest.startTime, 0, 0,settingsRequest.blockDuration, settingsRequest.rewardStreamFlow, 0, 0 ,0, settingsRequest.ammPlugin, liquidityPoolAddress, settingsRequest.mainTokenAddress, settingsRequest.ethereumAddress, settingsRequest.involvingETH);
     
     }
 
@@ -327,7 +340,9 @@ contract FarmStream is IFarmStream {
     }
 
     function _activateSetup() private {
-        require(block.timestamp > Farm.delayStartTime, "Too early");
+        //require(block.timestamp > Farm.delayStartTime, "Too early");
+        console.log("Super token balance");
+
         Farm.active = _ensureCheck(Farm.rewardStreamFlow * Farm.blockDuration);
         // update new setup
         Farm.startTime = block.timestamp;
@@ -389,7 +404,9 @@ contract FarmStream is IFarmStream {
      */
     
     function _ensureCheck(uint256 amount) private view returns(bool) {
-        uint256 balanceForStream = IERC20(rewardTokenAddress).balanceOf(rewardStreamManager);
+        uint256 balanceForStream = ISuperToken(rewardTokenAddress).balanceOf(rewardStreamManager);
+        console.log("Super token balance", balanceForStream);
+        
         if(balanceForStream >= amount) {
             return true;
         }

@@ -13,6 +13,11 @@ import {
     CFAv1Library
 } from "@superfluid-finance/ethereum-contracts/contracts/apps/CFAv1Library.sol";
 
+import "./IERC20.sol";
+import "hardhat/console.sol";
+
+
+
 contract RewardStreamManager {
 
     using CFAv1Library for CFAv1Library.InitData;
@@ -25,6 +30,8 @@ contract RewardStreamManager {
 
     event RewardStreamCreated(uint256 creationTime, address indexed rewardReceiver, uint256 flowRate);
     event RewardStreamClosed(uint256 closeTime, address indexed rewardReceiver);
+
+    address constant public usdcxtest = 0xCAa7349CEA390F89641fe306D93591f87595dc1F;
     
     constructor(
         ISuperfluid host,
@@ -52,6 +59,21 @@ contract RewardStreamManager {
         _;
     }
     
+    
+    function convertInSuperToken(uint256 amount, address token) external returns
+    (uint256) {
+        // approving
+        IERC20(token).transferFrom(msg.sender, address(this), amount);
+        IERC20(token).approve(usdcxtest, amount);
+        // wrapping
+        ISuperToken(rewardToken).upgradeTo(address(this), amount, "");
+
+        uint256 balance = ISuperToken(rewardToken).balanceOf(address(this));
+        console.log("balance",balance, msg.sender );
+
+        return (balance);
+    }
+
     function createRewardStream(address rewardStreamReceiver, uint256 flowRate) external byFarmingContract {
         int96 adjustedFlowRate = adjustFlowRate(flowRate);
         cfaV1.createFlow(rewardStreamReceiver, rewardToken, adjustedFlowRate);

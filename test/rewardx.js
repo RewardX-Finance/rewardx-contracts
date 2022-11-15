@@ -6,6 +6,7 @@ const { Framework } = require("@superfluid-finance/sdk-core")
 const frameworkDeployer = require("@superfluid-finance/ethereum-contracts/scripts/deploy-test-framework")
 const TestToken = require("@superfluid-finance/ethereum-contracts/build/contracts/TestToken.json");
 const { BigNumber } = require('ethers');
+
 //import {ethers} from "ethers";
 //const BigNumber = require("big-number");
 
@@ -40,7 +41,6 @@ before(async function () {
   // deploy the framework locally
   contractsFramework = await sfDeployer.getFramework()
   // Use the mainnet
-const network = "homestead";
 
 // Specify your own API keys
 // Each is optional, and if you omit it the default
@@ -53,6 +53,8 @@ const provider = ethers.getDefaultProvider("matic", {
 
   console.log("1");
 
+  /*
+ 
   sf = await Framework.create({
     chainId: 137,
     provider: provider,
@@ -61,9 +63,7 @@ const provider = ethers.getDefaultProvider("matic", {
   })
   
   console.log("2");
-
-  /*
-
+/*
   // DEPLOYING DAI and DAI wrapper super token
   tokenDeployment = await sfDeployer.deployWrapperSuperToken(
       "Fake DAI Token",
@@ -73,12 +73,12 @@ const provider = ethers.getDefaultProvider("matic", {
   )
 
   console.log("3");
+*/
 
 
-
-  daix = await sf.loadSuperToken("fDAIx")
+  //daix = await sf.loadSuperToken("fDAIx")
   console.log("4");
-
+/*
   dai = new ethers.Contract(
       daix.underlyingToken.address,
       TestToken.abi,
@@ -109,8 +109,7 @@ const provider = ethers.getDefaultProvider("matic", {
   await ownerUpgrade.exec(owner)
   await account1Upgrade.exec(account1)
   await account2Upgrade.exec(account2)
-  */
-
+*/
 })
 
 describe("Farming", function () {
@@ -132,19 +131,15 @@ describe("Farming", function () {
     const QuickPlugin = await ethers.getContractFactory("QuickSwapPlugin");
     const quick = await SushiPlugin.deploy(Quick_Swap_Router);
     console.log(quick.address);
-
-
     // superfluid setup
     const supertokenHolder = "0x23de5ff9907d465e874fafab51b73a4b8f19945a";
     const superToken = "0x27e1e4E6BC79D93032abef01025811B7E4727e85";
-
     // farming contract
     const FarmingSetup = await ethers.getContractFactory("FarmStream");
     const Farming = await FarmingSetup.deploy();
     console.log(Farming.address);
 
     usdcx = "0xCAa7349CEA390F89641fe306D93591f87595dc1F";
-
     
     // reward stream manager 
     const rewardStream = await ethers.getContractFactory("RewardStreamManager");
@@ -155,12 +150,39 @@ describe("Farming", function () {
     ,
     {gasLimit: 5000000});
 
+    /*
+    const usdcHolder = "0xf89d7b9c864f589bbf53a82105107622b35eaa40";
+    const secondAddressSigner = await ethers.getSigner(usdcHolder)
+
+
+    const usdcamount = "8799067894";
+    const usdcAdjAmount = ethers.BigNumber.from(usdcamount);
+
+    let convertUSDC = await streamManager.connect(secondAddressSigner).convertInSuperToken(usdcAdjAmount,"0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174");
+    console.log(convertUSDC);
+    */
+
+    
+
+    
+
     console.log(usdcx);
 
     console.log(streamManager.address);
 
+    //const usdcxABI = "./utils/usdcxABI.json";
+    //const adjUSDCABI = JSON.parse(usdcxABI);
 
-    const input = "1000000000000000000";
+
+    //const superUSDCWrapper = "0xCAa7349CEA390F89641fe306D93591f87595dc1F";
+
+    //const superWrapper = new ethers.Contract(adjUSDCABI, superUSDCWrapper);
+
+
+    //const input = "1000000000000000000";
+    const input = "100";
+
+
     const amount = ethers.BigNumber.from(input);
 
     const inputt = "20000000000000000000000";
@@ -169,7 +191,6 @@ describe("Farming", function () {
     const fee = "10000000000000000000";
     const lp = "0x34965ba0ac2451A34a0471F04CCa3F990b8dea27";
     const usdc = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174";
-    const lpHolder = "0x59e3a85a31042b88f3c009efb62936ceb4e760c3";
     const feeReceiver = "0x3936a3496E73b1d12b05e8c2E4CA3e2Aaf36004c";
     const setup = {
       startTime: 86400,
@@ -185,13 +206,14 @@ describe("Farming", function () {
     };
 
 
-    console.log(usdcx,
+    /*console.log(usdcx,
       setup,
       feeReceiver,
       fee,
       owner.address,
       streamManager.address,
       lp);
+      */
 
     let txFarmContract = await Farming.init(
       usdcx,
@@ -204,11 +226,64 @@ describe("Farming", function () {
   );
 
   let receive = await txFarmContract.wait();
+  let txSetup = await Farming.setup();
+
+  //console.log(txSetup);
 
   console.log(Farming.address);
+  return {
+    Farming,
+    streamManager,
+  };
+
   }
 
   it("create Farming", async function() {
-    const Farming = await helpers.loadFixture(deploySetups);
+    //deploy setup Farming
+    const {Farming, streamManager} = await helpers.loadFixture(deploySetups);
+    let txSetup = await Farming.setup();
+
+    console.log("7");
+
+    // import USDC ABI
+    var fs = require('fs');
+    var jsonFile = "./utils/usdcABI.json";
+    
+    var parsed= JSON.parse(fs.readFileSync(jsonFile));
+
+    var abi = parsed.abi;
+
+    tokenContract = new ethers.Contract(abi, "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174");
+
+    // approve USDC and convert it in USDCx
+    const usdcHolder = "0xf89d7b9c864f589bbf53a82105107622b35eaa40";
+    const seconddAddressSigner = await ethers.getSigner(usdcHolder)
+
+
+    const usdccamount = "8799067894";
+    const usdccAdjAmount = ethers.BigNumber.from(usdccamount);
+
+    let approveUSDC = await tokenContract.connect(seconddAddressSigner).approve(streamManager.address,usdccAdjAmount);
+
+    let convertUSDC = await streamManager.connect(seconddAddressSigner).convertInSuperToken(usdccAdjAmount,"0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174");
+    console.log(convertUSDC);
+
+    console.log("8");
+
+
+    // open Farming position
+    const lpHolder = "0x59e3a85a31042b88f3c009efb62936ceb4e760c3";
+    const secondAddressSigner = await ethers.getSigner(lpHolder)
+
+    const positionRequest = {
+      amount: 267547218951771,
+      amountIsLiquidityPool: true,
+      positionOwner: lpHolder,
+      amount0Min: ethers.BigNumber.from(0),
+      amount1Min: ethers.BigNumber.from(0),
+    };
+
+    let openPosition = await Farming.connect(secondAddressSigner).openPosition(positionRequest);
+    
   });
 });

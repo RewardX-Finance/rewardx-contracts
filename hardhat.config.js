@@ -11,6 +11,7 @@ module.exports = {
         url: "https://polygon-mainnet.infura.io/v3/384e453bd0e14fb4af9256c495db7470",
         gas: 2100000,
         gasPrice: 8000000000,
+        chainId: 137,
       }
     }
   },

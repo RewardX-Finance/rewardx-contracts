@@ -60,16 +60,16 @@ contract RewardStreamManager {
     }
     
     
-    function convertInSuperToken(uint256 amount, address token) external returns
-    (uint256) {
+    function convertInSuperToken(uint256 amount, address token) external returns (uint256) {
         // approving
         IERC20(token).transferFrom(msg.sender, address(this), amount);
         IERC20(token).approve(usdcxtest, amount);
         // wrapping
-        ISuperToken(rewardToken).upgradeTo(address(this), amount, "");
+        ISuperToken(rewardToken).upgrade(amount);
 
         uint256 balance = ISuperToken(rewardToken).balanceOf(address(this));
-        console.log("balance",balance, msg.sender );
+        console.log("balanceUSDCx",balance, msg.sender );
+        console.log("balanceUSDC", IERC20(token).balanceOf(address(this)));
 
         return (balance);
     }

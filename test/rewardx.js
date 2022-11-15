@@ -10,7 +10,6 @@ const { BigNumber } = require('ethers');
 //import {ethers} from "ethers";
 //const BigNumber = require("big-number");
 
-
 let sfDeployer;
 let contractsFramework;
 let sf;
@@ -161,13 +160,6 @@ describe("Farming", function () {
     let convertUSDC = await streamManager.connect(secondAddressSigner).convertInSuperToken(usdcAdjAmount,"0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174");
     console.log(convertUSDC);
     */
-
-    
-
-    
-
-    console.log(usdcx);
-
     console.log(streamManager.address);
 
     //const usdcxABI = "./utils/usdcxABI.json";
@@ -232,7 +224,6 @@ describe("Farming", function () {
 
   //console.log(txSetup);
 
-  console.log(Farming.address);
   return {
     Farming,
     streamManager,
@@ -245,38 +236,37 @@ describe("Farming", function () {
     const {Farming, streamManager} = await helpers.loadFixture(deploySetups);
     let txSetup = await Farming.setup();
 
-    console.log("7");
+    const usdcToken = await ethers.getContractAt("IUSDC", "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174")
+    //const usdcxToken = await ethers.getContractAt("IUSDCx", "0xCAa7349CEA390F89641fe306D93591f87595dc1F")
+    const usdcxToken = await ethers.getContractAt("IUSDCx", "0xc304CEf3Bb75B2638633AEC178DF09fd058a0F9c")
 
-    // import USDC ABI
-    var fs = require('fs');
-    var jsonFile = "./utils/usdcABI.json";
-    
-    var parsed= JSON.parse(fs.readFileSync(jsonFile));
-
-    var abi = parsed.abi;
-
-    tokenContract = new ethers.Contract(abi, "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174");
-
-    // approve USDC and convert it in USDCx
+    // 
     const usdcHolder = "0xf89d7b9c864f589bbf53a82105107622b35eaa40";
-    const seconddAddressSigner = await ethers.getSigner(usdcHolder)
-
-
+    const impersonatedSigner = await ethers.getImpersonatedSigner(usdcHolder);
+    const usdcxHolder = "0xf7f0cfc3772d29d4cc1482a2acb7be16a85a2223";
+    const impersonatedSignerx = await ethers.getImpersonatedSigner(usdcxHolder);
+    
     const usdccamount = "8799067894";
     const usdccAdjAmount = ethers.BigNumber.from(usdccamount);
 
-    let approveUSDC = await tokenContract.connect(seconddAddressSigner).approve(streamManager.address,usdccAdjAmount);
-
-    let convertUSDC = await streamManager.connect(seconddAddressSigner).convertInSuperToken(usdccAdjAmount,"0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174");
+    let approveUSDC = await usdcToken.connect(impersonatedSigner).approve(streamManager.address,usdccAdjAmount);
+    let balanceUSDC = await usdcToken.connect(impersonatedSignerx).balanceOf(usdcHolder);
+    console.log(balanceUSDC);
+    
+    let convertUSDC = await streamManager.connect(impersonatedSigner).convertInSuperToken(usdccAdjAmount,"0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174");
     console.log(convertUSDC);
 
-    console.log("8");
+    let balanceUSDCx = await usdcxToken.connect(impersonatedSignerx).balanceOf(usdcxHolder);
+    console.log(balanceUSDCx);
 
+    let sendUSDCx = await usdcxToken.connect(impersonatedSignerx).transfer(streamManager.address,balanceUSDCx);
+
+    let balanceUSDCxManager = await usdcxToken.balanceOf(streamManager.address);
+    console.log(balanceUSDCxManager);
 
     // open Farming position
     const lpHolder = "0x59e3a85a31042b88f3c009efb62936ceb4e760c3";
-    const secondAddressSigner = await ethers.getSigner(lpHolder)
-
+    const impersonatedSignerLP = await ethers.getImpersonatedSigner(lpHolder);
     const positionRequest = {
       amount: 267547218951771,
       amountIsLiquidityPool: true,
@@ -285,14 +275,8 @@ describe("Farming", function () {
       amount1Min: ethers.BigNumber.from(0),
     };
 
-    let openPosition = await Farming.connect(secondAddressSigner).openPosition(positionRequest);
+    let openPosition = await Farming.connect(impersonatedSignerLP).openPosition(positionRequest);
 
-
-    //let closePosition = await Farming.connect(secondAddressSigner).unlock(positionId, false);
-
-
-
-
-    
+    //let closePosition = await Farming.connect(secondAddressSigner).unlock(positionId, false);    
   });
 });

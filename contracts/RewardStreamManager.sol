@@ -59,10 +59,10 @@ contract RewardStreamManager {
         _;
     }
     
-    
+    /*
     function convertInSuperToken(uint256 amount, address token) external returns (uint256) {
         // approving
-        IERC20(token).transferFrom(msg.sender, address(this), amount);
+        //IERC20(token).transferFrom(msg.sender, address(this), amount);
         IERC20(token).approve(usdcxtest, amount);
         // wrapping
         ISuperToken(rewardToken).upgrade(amount);
@@ -73,6 +73,7 @@ contract RewardStreamManager {
 
         return (balance);
     }
+    */
 
     function createRewardStream(address rewardStreamReceiver, uint256 flowRate) external byFarmingContract {
         int96 adjustedFlowRate = adjustFlowRate(flowRate);

@@ -96,13 +96,10 @@ contract FarmStream is IFarmStream {
     }
 
     function openPosition(userPositionRequest memory request) public override payable returns(uint256 positionId) {
-        console.log("Super token balance");
-
+        console.log(Farm.blockDuration * Farm.rewardStreamFlow);
         if(!Farm.active) {
             _activateSetup();
         }
-
-
         require(Farm.active, "Setup not active");
         //require(Farm.startTime <= block.timestamp && Farm.endTime > block.timestamp, "Invalid setup");
         require(Farm.startTime <= block.timestamp , "Invalid setup1");
@@ -113,15 +110,21 @@ contract FarmStream is IFarmStream {
         // create the position id
         positionId = uint256(keccak256(abi.encode(uniqueOwner, block.timestamp, Farm.rewardStreamFlow)));
         require(_positions[positionId].creationBlock == 0, "Invalid open");
+        console.log("HERE");
         // create the lp data for the amm
         (LiquidityPoolData memory liquidityPoolData, uint256 mainTokenAmount) = _addLiquidity(request);
+        console.log("HERE2");
+
         // calculate the reward
         uint256 reward;
         uint256 lockedRewardStreamPerBlock;
+        console.log("test");
+
 
         (reward, lockedRewardStreamPerBlock) = calculateLockedFarmingReward(mainTokenAmount);
+        console.log("test");
         require(lockedRewardStreamPerBlock > 0, "Insufficient staked amount");
-        IRewardStreamManager(rewardStreamManager).createRewardStream(positionId,uniqueOwner, lockedRewardStreamPerBlock);
+        //IRewardStreamManager(rewardStreamManager).createRewardStream(positionId,uniqueOwner, lockedRewardStreamPerBlock);
 
         Farm.totalSupply = Farm.totalSupply + mainTokenAmount;
 
@@ -233,8 +236,10 @@ contract FarmStream is IFarmStream {
         address[] memory tokens;
         uint256[] memory tokenAmounts;
         // if liquidity pool token amount is provided, the position is opened by liquidity pool token amount
+        console.log("here3");
         if(request.amountIsLiquidityPool) {
             _safeTransferFrom(setup.liquidityPoolTokenAddress, msg.sender, address(this), liquidityPoolAmount);
+            console.log("here4");
             (tokenAmounts, tokens) = amm.byLiquidityPoolAmount(setup.liquidityPoolTokenAddress, liquidityPoolAmount);
         } else {
             // else it is opened by the tokens amounts
@@ -264,6 +269,7 @@ contract FarmStream is IFarmStream {
 
     function _addLiquidity(userPositionRequest memory request) private returns(LiquidityPoolData memory liquidityPoolData, uint256 tokenAmount) {
         (IAMM amm, uint256 liquidityPoolAmount, uint256 mainTokenAmount) = _transferToMeAndCheckAllowance(request);
+        console.log("here2");
         // liquidity pool data struct for the AMM
         liquidityPoolData = LiquidityPoolData(
             Farm.liquidityPoolTokenAddress,
@@ -341,9 +347,8 @@ contract FarmStream is IFarmStream {
 
     function _activateSetup() private {
         //require(block.timestamp > Farm.delayStartTime, "Too early");
-        console.log("Super token balance");
-
-        Farm.active = _ensureCheck(Farm.rewardStreamFlow * Farm.blockDuration);
+        //Farm.active = _ensureCheck(Farm.rewardStreamFlow * Farm.blockDuration);
+        Farm.active = true;
         // update new setup
         Farm.startTime = block.timestamp;
         Farm.endTime = block.timestamp + Farm.blockDuration;
@@ -405,8 +410,6 @@ contract FarmStream is IFarmStream {
     
     function _ensureCheck(uint256 amount) private view returns(bool) {
         uint256 balanceForStream = ISuperToken(rewardTokenAddress).balanceOf(rewardStreamManager);
-        console.log("Super token balance", balanceForStream);
-        
         if(balanceForStream >= amount) {
             return true;
         }
